@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name=viewport content="width=device-width, initial-scale=1">
 
-    <meta name="google-signin-client_id" content="1067280451430-65sea94t68h5bds6jsagmv052tnvc7nb.apps.googleusercontent.com">
+    <!-- <meta name="google-signin-client_id" content="1067280451430-65sea94t68h5bds6jsagmv052tnvc7nb.apps.googleusercontent.com"> -->
 
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
 
@@ -15,6 +15,8 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.7/howler.min.js"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <script src="https://accounts.google.com/gsi/client"></script>
 
     <style type="text/css">
       body{
@@ -107,10 +109,33 @@
         </ul>
         <p>For example like this: <a href="?bpm=100&next=5&shuffle=1">/?bpm=100&amp;next=5&amp;shuffle=1</a></p>
       </div>
-      <div class="row">
+      <!-- <div class="row">
         <div id="login-logout" class="col-xs-12">
           <div id="authorize-button"></div>
           <button id="signout-button" class="btn btn-primary hidden" onclick="handleSignoutClick()">Sign Out</button>
+        </div>
+      </div> -->
+
+      <div class="row">
+        <div id="login-logout" class="col-xs-12">
+          <div id="g_id_onload"
+               data-client_id="YOUR_CLIENT_ID"
+               data-context="signin"
+               data-ux_mode="popup"
+               data-callback="handleCredentialResponse"
+               data-auto_prompt="false">
+          </div>
+      
+          <div class="g_id_signin"
+               data-type="standard"
+               data-shape="rectangular"
+               data-theme="outline"
+               data-text="signin_with"
+               data-size="large"
+               data-logo_alignment="left">
+          </div>
+          
+          <button id="signout-button" class="btn btn-primary hidden" onclick="handleSignOut()">Sign Out</button>
         </div>
       </div>
 
@@ -182,14 +207,67 @@
 
     <script type="text/javascript">
       // Client ID and API key from the Developer Console
-      var CLIENT_ID = "1067280451430-65sea94t68h5bds6jsagmv052tnvc7nb.apps.googleusercontent.com";
+      const CLIENT_ID = "1067280451430-65sea94t68h5bds6jsagmv052tnvc7nb.apps.googleusercontent.com";
+      const API_KEY = "AIzaSyBU7L7qBAzdAfOGSCrcX-h1yH9QX9P0mZk";
+      const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+      const SCOPES = "https://www.googleapis.com/auth/drive.metadata.readonly";
 
-      // Array of API discovery doc URLs for APIs
-      var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+      let tokenClient;
+      let accessToken = null;
 
-      // Authorization scopes required by the API; multiple scopes can be
-      // included, separated by spaces.
-      var SCOPES = "https://www.googleapis.com/auth/drive.metadata.readonly";
+      async function handleCredentialResponse(response) {
+        // Handle the credential response
+        if (response.credential) {
+          // Get access token
+          tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: CLIENT_ID,
+            scope: SCOPES,
+            callback: (tokenResponse) => {
+              if (tokenResponse && tokenResponse.access_token) {
+                accessToken = tokenResponse.access_token;
+                // Initialize the Google Drive API client
+                gapi.client.init({
+                  apiKey: API_KEY,
+                  discoveryDocs: DISCOVERY_DOCS,
+                }).then(() => {
+                  // Set the access token
+                  gapi.client.setToken({
+                    access_token: accessToken
+                  });
+                  // Update UI and load folders
+                  updateSigninStatus(true);
+                  listFolders();
+                });
+              }
+            },
+          });
+          tokenClient.requestAccessToken({prompt: ''});
+        }
+      }
+
+      async function handleSignOut() {
+        google.accounts.id.disableAutoSelect();
+        // Revoke access token
+        if (accessToken) {
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${accessToken}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            }
+          });
+          accessToken = null;
+          document.getElementById("signout-button").classList.add("hidden");
+          location.reload();
+        }
+      }
+
+      // Load the Google API client library
+      function loadGapiClient() {
+        gapi.load('client', () => {
+          console.log('GAPI client loaded');
+        });
+      }
+
 
       // Namespace
       var sissy = {};
@@ -657,9 +735,10 @@
       }
     </script>
 
-    <script async defer src="https://apis.google.com/js/api.js"
+    <!-- <script async defer src="https://apis.google.com/js/api.js"
       onload="this.onload=function(){};handleClientLoad()"
       onreadystatechange="if (this.readyState === 'complete') this.onload()">
-    </script>
+    </script> -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="loadGapiClient()"></script>
   </body>
 </html>
